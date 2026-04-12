@@ -58,10 +58,7 @@ public class PlatziHttpClient : IPlatziHttpClient
         }
     }
 
-    public async Task<TResponse?> PostAsync<TRequest, TResponse>(
-        string endpoint, 
-        TRequest request, 
-        CancellationToken cancellationToken = default)
+    public async Task<TResponse?> PostAsync<TRequest, TResponse>(string endpoint, TRequest request, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -92,10 +89,7 @@ public class PlatziHttpClient : IPlatziHttpClient
         }
     }
 
-    public async Task<TResponse?> PutAsync<TRequest, TResponse>(
-        string endpoint, 
-        TRequest request, 
-        CancellationToken cancellationToken = default)
+    public async Task<TResponse?> PutAsync<TRequest, TResponse>(string endpoint, TRequest request, CancellationToken cancellationToken = default)
     {
         try
         {

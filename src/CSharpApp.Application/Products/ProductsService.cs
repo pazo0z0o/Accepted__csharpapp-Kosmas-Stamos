@@ -7,10 +7,7 @@ public class ProductsService : IProductsService
     private readonly RestApiSettings _restApiSettings;
     private readonly ILogger<ProductsService> _logger;
 
-    public ProductsService(
-        IPlatziHttpClient apiClient,
-        IOptions<RestApiSettings> restApiSettings,
-        ILogger<ProductsService> logger)
+    public ProductsService(IPlatziHttpClient apiClient,IOptions<RestApiSettings> restApiSettings,ILogger<ProductsService> logger)
     {
         _apiClient = apiClient;
         _restApiSettings = restApiSettings?.Value;
