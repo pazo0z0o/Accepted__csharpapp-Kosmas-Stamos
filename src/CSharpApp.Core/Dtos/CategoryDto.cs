@@ -16,4 +16,6 @@ public sealed class Category
 
     [JsonPropertyName("updatedAt")]
     public DateTime? UpdatedAt { get; set; }
+    [JsonPropertyName("category_slug")]
+    public string? Slug { get; set; }
 }

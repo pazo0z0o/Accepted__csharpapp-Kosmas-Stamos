@@ -25,4 +25,7 @@ public sealed class Product
 
     [JsonPropertyName("category")]
     public Category? Category { get; set; }
+
+    [JsonPropertyName("product_slug")]
+    public string? Slug { get; set; }
 }
