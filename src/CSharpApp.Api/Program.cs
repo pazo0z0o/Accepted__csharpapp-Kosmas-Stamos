@@ -131,7 +131,8 @@ versionedEndpointRouteBuilder
     .WithName("Login")
     .HasApiVersion(1.0);
 
-// Get user profile 
+// Get user profile -- I am not sending the request with the access token in the header 
+// requires further implementation to extract user info from the token 
 versionedEndpointRouteBuilder
     .MapGet("api/v{version:apiVersion}/auth/profile", async (IAuthService authService) =>
     {
