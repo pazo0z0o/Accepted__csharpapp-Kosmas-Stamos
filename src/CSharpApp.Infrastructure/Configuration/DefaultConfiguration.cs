@@ -1,4 +1,5 @@
 using CSharpApp.Application.Auth;
+using FluentValidation;
 
 namespace CSharpApp.Infrastructure.Configuration;
 
@@ -18,6 +19,8 @@ public static class DefaultConfiguration
             cfg.AddOpenBehavior(typeof(CSharpApp.Application.Common.Behaviours.LoggingBehaviour<,>)); 
         });
 
+        //Fluent Validation Registration
+        services.AddValidatorsFromAssembly(typeof(ProductsService).Assembly);
 
         //Turned to scoped for better performance, and release after use of the service - 
         services.AddScoped<IProductsService, ProductsService>();

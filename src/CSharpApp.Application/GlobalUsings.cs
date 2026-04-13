@@ -14,3 +14,4 @@ global using CSharpApp.Core.Dtos.Responses;
 global using CSharpApp.Core.Dtos.Queries;
 global using MediatR;
 global using CSharpApp.Application.Common;
+global using CSharpApp.Application.Common.Behaviours;
