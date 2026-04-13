@@ -32,7 +32,7 @@ var versionedEndpointRouteBuilder = app.NewVersionedApi();
 // PRODUCTS ENDPOINTS
 // ========================================
 
-// Get all products - changed for 
+// Get all products - changed for CQRS pattern with MediatR
 versionedEndpointRouteBuilder
     .MapGet("api/v{version:apiVersion}/products", async (IMediator mediator) =>
     {
