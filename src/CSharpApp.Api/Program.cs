@@ -1,3 +1,4 @@
+using CSharpApp.Api.Middleware;
 using CSharpApp.Application.Categories.Commands.CreateCategory;
 using CSharpApp.Application.Categories.Queries.GetAllCategories;
 using CSharpApp.Application.Categories.Queries.GetCategoryById;
@@ -22,6 +23,8 @@ if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
 }
+// Add performance monitoring middleware
+app.UseMiddleware<RequestPerformanceMiddleware>();
 
 var versionedEndpointRouteBuilder = app.NewVersionedApi();
 

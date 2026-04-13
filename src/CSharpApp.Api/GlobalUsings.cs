@@ -12,3 +12,4 @@ global using CSharpApp.Application.Categories.Queries.GetAllCategories;
 global using CSharpApp.Application.Categories.Queries.GetCategoryById;
 global using CSharpApp.Core.Dtos.Requests;    
 global using CSharpApp.Core.Dtos.Responses;
+global using CSharpApp.Api.Middleware;
