@@ -1,3 +1,7 @@
+using CSharpApp.Application.Categories.Commands.CreateCategory;
+using CSharpApp.Application.Categories.Queries.GetAllCategories;
+using CSharpApp.Application.Categories.Queries.GetCategoryById;
+
 var builder = WebApplication.CreateBuilder(args);
 
 var logger = new LoggerConfiguration().ReadFrom.Configuration(builder.Configuration).CreateLogger();
@@ -61,5 +65,47 @@ versionedEndpointRouteBuilder
     })
     .WithName("CreateProduct")
     .HasApiVersion(1.0);
+// ========================================
+
+// CATEGORIES ENDPOINTS
+// ========================================
+
+// Get all categories
+versionedEndpointRouteBuilder
+    .MapGet("api/v{version:apiVersion}/categories", async (IMediator mediator) =>
+    {
+        var query = new GetAllCategoriesQuery();
+        return await mediator.Send(query);
+    })
+    .WithName("GetAllCategories")
+    .HasApiVersion(1.0);
+
+// Get category by ID
+versionedEndpointRouteBuilder
+    .MapGet("api/v{version:apiVersion}/categories/{id}", async (int id, IMediator mediator) =>
+    {
+        var query = new GetCategoryByIdQuery(id);
+        var category = await mediator.Send(query);
+
+        if (category == null)
+        {
+            return Results.NotFound();
+        }
+
+        return Results.Ok(category);
+    })
+    .WithName("GetCategoryById")
+    .HasApiVersion(1.0);
+
+// Create category
+versionedEndpointRouteBuilder
+    .MapPost("api/v{version:apiVersion}/categories", async (CreateCategoryCommand command, IMediator mediator) =>
+    {
+        var category = await mediator.Send(command);
+        return Results.Ok(category);
+    })
+    .WithName("CreateCategory")
+    .HasApiVersion(1.0);
+
 // ========================================
 app.Run();
