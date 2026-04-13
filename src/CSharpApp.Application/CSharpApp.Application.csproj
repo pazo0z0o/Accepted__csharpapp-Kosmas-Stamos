@@ -17,4 +17,10 @@
       <ProjectReference Include="..\CSharpApp.Core\CSharpApp.Core.csproj" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Categories\Commands\CreateCategory\" />
+      <Folder Include="Categories\Queries\GetAllCategories\" />
+      <Folder Include="Categories\Queries\GetCategoryById\" />
+    </ItemGroup>
+
 </Project>

@@ -19,16 +19,47 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
 }
 
-//app.UseHttpsRedirection();
-
 var versionedEndpointRouteBuilder = app.NewVersionedApi();
 
-versionedEndpointRouteBuilder.MapGet("api/v{version:apiVersion}/getproducts", async (IProductsService productsService) =>
+
+// PRODUCTS ENDPOINTS
+// ========================================
+
+// Get all products - changed for 
+versionedEndpointRouteBuilder
+    .MapGet("api/v{version:apiVersion}/products", async (IMediator mediator) =>
     {
-        var products = await productsService.GetProducts();
-        return products;
+        var query = new GetAllProductsQuery();
+        return await mediator.Send(query);
     })
-    .WithName("GetProducts")
+    .WithName("GetAllProducts")
     .HasApiVersion(1.0);
 
+// Get product by ID
+versionedEndpointRouteBuilder
+    .MapGet("api/v{version:apiVersion}/products/{id}", async (int id, IMediator mediator) =>
+    {
+        var query = new GetProductByIdQuery(id);
+        var product = await mediator.Send(query);
+        
+        if (product == null)
+        {
+            return Results.NotFound();
+        }
+        
+        return Results.Ok(product);
+    })
+    .WithName("GetProductById")
+    .HasApiVersion(1.0);
+
+// Create product
+versionedEndpointRouteBuilder
+    .MapPost("api/v{version:apiVersion}/products", async (CreateProductCommand command, IMediator mediator) =>
+    {
+        var product = await mediator.Send(command);
+        return Results.Ok(product);
+    })
+    .WithName("CreateProduct")
+    .HasApiVersion(1.0);
+// ========================================
 app.Run();
