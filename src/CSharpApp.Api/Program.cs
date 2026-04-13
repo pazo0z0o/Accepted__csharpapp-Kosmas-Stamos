@@ -108,4 +108,43 @@ versionedEndpointRouteBuilder
     .HasApiVersion(1.0);
 
 // ========================================
+
+// AUTHENTICATION ENDPOINTS
+// ========================================
+
+// Login - authenticate and get JWT token
+versionedEndpointRouteBuilder
+    .MapPost("api/v{version:apiVersion}/auth/login", async (LoginRequest request, IAuthService authService) =>
+    {
+        var authResponse = await authService.LoginAsync(request);
+
+        if (authResponse == null)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(authResponse);
+    })
+    .WithName("Login")
+    .HasApiVersion(1.0);
+
+// Get user profile 
+versionedEndpointRouteBuilder
+    .MapGet("api/v{version:apiVersion}/auth/profile", async (IAuthService authService) =>
+    {
+        var profile = await authService.GetProfileAsync();
+
+        if (profile == null)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(profile);
+    })
+    .WithName("GetProfile")
+    .HasApiVersion(1.0);
+
+// ========================================
+
+
 app.Run();

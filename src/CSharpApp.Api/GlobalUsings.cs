@@ -9,4 +9,6 @@ global using CSharpApp.Application.Products.Queries.GetAllProducts;
 global using CSharpApp.Application.Products.Queries.GetProductById;
 global using CSharpApp.Application.Categories.Commands.CreateCategory;  
 global using CSharpApp.Application.Categories.Queries.GetAllCategories; 
-global using CSharpApp.Application.Categories.Queries.GetCategoryById;  
+global using CSharpApp.Application.Categories.Queries.GetCategoryById;
+global using CSharpApp.Core.Dtos.Requests;    
+global using CSharpApp.Core.Dtos.Responses;
