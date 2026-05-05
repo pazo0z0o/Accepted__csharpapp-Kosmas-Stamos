@@ -1,0 +1,75 @@
+Notes on project: 
+Singleton vs Scoped
+// DEFAULT CHOICE (95% of cases)
+services.AddScoped<IService, Service>();
+
+// ONLY when you're 100% sure:
+// 1. No DbContext dependency - each db action by user is their own - no entanglements
+// 2. No mutable state (or thread-safe) - calculations
+// 3. Expensive to create - initial loading of settings, options or configurations 
+// 4. Truly shared across requests - one state or form for EVERYONE
+services.AddSingleton<IService, Service>();
+
+===========================================================================================
+
+// Base command
+public class AnimalCommand : ICommand { }
+
+// Derived command
+public class DogCommand : AnimalCommand { }
+
+// Handler that works with any AnimalCommand
+public class AnimalHandler : ICommandHandler<AnimalCommand> { }
+
+// You can assign a more specific command to a handler expecting a base command
+ICommandHandler<DogCommand> handler = new AnimalHandler(); // Works!
+---------------------
+
+Why this is useful
+Flexibility: You can pass a handler for base types where a handler for derived types is expected
+
+Liskov Substitution: A handler that can process any AnimalCommand can also process a DogCommand
+
+Type Safety: The compiler ensures the contravariant parameter is only used as input
+
+Contrast with out (covariance)
+in (contravariance): More derived → Less derived (input only)
+
+out (covariance): Less derived → More derived (output only)
+
+Real-world benefit in CQRS
+In a CQRS pattern, command handlers consume commands. By using in TCommand, you can write handlers that work with base command types and reuse them for all derived commands, promoting code reuse and cleaner architecture.
+
+
+===========================================================================================
+INIT vs SET in records: 
+
+// Traditional mutable property
+public string Name { get; set; } = string.Empty;
+// Can be changed ANYTIME, ANYWHERE
+
+// Modern init-only property  
+public string Name { get; init; } = string.Empty;
+// Can ONLY be set during object initialization
+
+Example:
+
+public class Product
+{
+    public string Name { get; init; } = string.Empty;
+    public decimal Price { get; init; }
+}
+
+// This WORKS - setting during initialization
+var product = new Product 
+{ 
+    Name = "Laptop",  // ✅ Allowed (initialization phase)
+    Price = 1000      // ✅ Allowed
+};
+
+// This FAILS - trying to change after creation
+product.Name = "Desktop";  // ❌ Compiler error!
+product.Price = 1200;      // ❌ Compiler error!
+
+===========================================================================================
+

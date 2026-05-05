@@ -29,7 +29,7 @@ namespace CSharpApp.Application.Common.Behaviours;
             {
                 var response = await next(); //Calls the next delegate/middleware in the pipeline
 
-            stopwatch.Stop();
+                stopwatch.Stop();
 
                 _logger.LogInformation(
                     "Handled {RequestName} in {Milliseconds}ms",

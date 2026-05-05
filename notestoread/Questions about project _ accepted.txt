@@ -1,0 +1,212 @@
+1. HttpClient Refactoring
+"Can you explain the HttpClient changes you made?"
+What to say:
+"The original code was creating new HttpClient() directly inside the service constructor. This is actually a well-known anti-pattern in .NET because HttpClient is designed to be reused, not instantiated per request. Every time a new instance is created, it opens a new TCP connection and holds onto the socket even after disposal, which can lead to socket exhaustion - basically running out of available ports under load.
+What I did instead was introduce IHttpClientFactory through a typed client pattern. I created an interface called IPlatziHttpClient and implemented it with PlatziApiClient. The factory manages the lifetime of the underlying HttpMessageHandler, reusing connections while still allowing the HttpClient instance to be short-lived. It also handles DNS refresh automatically - the original code would cache DNS indefinitely which causes issues in cloud environments where IPs change."
+---
+"What specifically improved?"
+What to say:
+"Three main things:
+First, connection pooling - the factory reuses underlying TCP connections instead of opening new ones every request.
+Second, handler lifetime management - I configured it to refresh the handler every 10 minutes, which comes from the HttpClientSettings in appsettings.json. This is the sweet spot between reusing connections and picking up DNS changes.
+Third, testability - because I extracted an IPlatziHttpClient interface, I can now mock the HTTP client in unit tests without making real API calls. You can see this in the test project where I use Mock<IPlatziHttpClient>."
+---
+"Why a custom interface instead of using HttpClient directly?"
+What to say:
+"Two reasons. First, abstraction - the rest of the application doesn't need to know about HTTP at all. The ProductsService and handlers just call GetAsync<Product>() without knowing or caring how the HTTP call is made. If we ever need to change the HTTP library or add headers, we do it in one place.
+Second, testing - you can't easily mock HttpClient directly. By depending on IPlatziHttpClient, every class that needs HTTP becomes trivially testable."
+---
+2. CQRS Pattern
+"Why did you implement CQRS?"
+What to say:
+"The requirement mentioned CQRS as a strong plus, and honestly it made sense for this project. The idea is to separate read operations (Queries) from write operations (Commands).
+In practice this means GetAllProductsQuery only ever reads data - it has no side effects. CreateProductCommand only writes data. They never mix.
+The benefit is clarity - when you open a Query handler you immediately know it won't modify anything. When you open a Command handler you know it will. It also makes the code easier to extend - if I need to add caching to GET endpoints, I only touch Query handlers."
+---
+"What is MediatR and why did you use it?"
+What to say:
+"MediatR is a library that implements the Mediator pattern - instead of calling services directly, you send a message (command or query) and MediatR finds the right handler for it.
+The benefit is decoupling - my endpoints don't know about handlers, they just call mediator.Send(query). This makes the code easier to maintain and test.
+It also gave me a pipeline for free. I added two behaviors: LoggingBehavior which automatically times and logs every request, and ValidationBehavior which runs FluentValidation before the handler executes. This means I never have to manually add logging or validation to each handler - it happens automatically for everything."
+---
+3. Performance Middleware
+"How does your performance middleware work?"
+What to say:
+"It's a standard ASP.NET Core middleware that wraps every HTTP request. I use Stopwatch to measure the total request time from when ASP.NET receives the request to when the response is sent.
+It logs two things: every completed request with its duration and status code, and a warning if a request takes over 1 second. This is important because in production you want to know which endpoints are slow before users complain.
+It also logs failed requests with the exception and how long they ran before failing - useful for debugging."
+---
+4. Clean Architecture
+"Can you explain your project structure?"
+What to say:
+"I followed Clean Architecture with four layers.
+Core is the innermost layer - it has no dependencies on anything else. It contains DTOs, interfaces and settings. Everything else depends on Core but Core depends on nothing.
+Application contains business logic - the handlers, validators, and services. It depends on Core for the interfaces and models.
+Infrastructure is where technical details live - the HttpClient configuration, DI registration. It knows about the frameworks so Application doesn't have to.
+Api is the outermost layer - just the endpoints in Program.cs. It depends on everything else but nothing depends on it.
+The key benefit is that if I need to swap the HTTP library or change how DI works, I only touch Infrastructure. The business logic in Application doesn't change."
+---
+5. JWT Authentication
+"How did you implement authentication?"
+What to say:
+"The Platzi API uses JWT authentication. I created an IAuthService with a LoginAsync(LoginRequest, CancellationToken) method that sends credentials from appsettings.json to the /auth/login endpoint and receives back an access token and refresh token.
+I exposed this through a login endpoint. When called, it returns the JWT tokens to the client.
+I'll be honest - the profile endpoint has a limitation. Because AuthService is scoped (new instance per request), the token stored during login isn't available in the next request for the profile endpoint. In production, I'd extract the Bearer token from the Authorization header and forward it to the upstream API, or use a proper token store."
+Why this answer is good:
+•	✅ Shows honesty about limitations
+•	✅ Shows you understand the problem
+•	✅ Shows you know the correct solution
+---
+6. Testing
+"How did you approach testing?"
+What to say:
+"I focused on unit testing the business logic - specifically the CQRS handlers and FluentValidation validators. I used xUnit as the test framework and Moq to mock dependencies.
+For every handler I tested the happy path - what happens when the API returns data - and the sad path - what happens when it returns null or fails.
+For validators I tested valid input passes, and each validation rule catches invalid input.
+I deliberately didn't test the HTTP client wrapper or the endpoints themselves because those would be integration tests - they'd need a real or fake HTTP server. For the scope of this assignment, unit testing the handlers gives the most value for the time spent."
+---
+7. Docker
+"What's in your Dockerfile?"
+What to say:
+"It's a multi-stage build. The first stage uses the full .NET SDK image to compile and publish the application. The second stage uses only the ASP.NET runtime image which is much smaller - the SDK is around 700MB, the runtime is around 200MB.
+The reason for multi-stage is you don't want build tools in your production image. It's smaller, faster to deploy, and has a smaller attack surface."
+---
+
+
+"Why did you use Minimal APIs instead of Controllers?"
+"Minimal APIs were introduced in .NET 6 and are Microsoft's recommended approach for new APIs in .NET 9. They have less ceremony - no controller classes, no attributes, just endpoint mappings. They're faster to write and have slightly better performance because there's less middleware overhead.
+For a project like this that calls an external API and returns data, Minimal APIs are a natural fit. If the project had complex routing, filters, or lots of shared controller behavior, I might have considered controllers instead."
+---
+"Why did you choose CQRS for this project?"
+"The existing codebase already showed intent toward Clean Architecture, so CQRS was a natural extension of that. The README also specifically mentioned it as a strong plus.
+More practically, even in this small project it gives immediate benefits - my GET endpoints are completely separate from my POST endpoints in terms of code. If I wanted to add caching to all GET operations, I'd do it in one place in the MediatR pipeline without touching any handler. That's a real benefit even at this scale."
+---
+"What would you improve with more time?"
+"A few things. First, proper error handling - right now if the Platzi API returns a 400, we throw an unhandled exception. I'd add a proper error handling middleware that maps exceptions to appropriate HTTP status codes.
+Second, the profile endpoint - currently it has a scope issue where the token stored during login isn't available in subsequent requests. I'd fix this by extracting the Bearer token from the Authorization header and forwarding it.
+Third, I'd add more test coverage, particularly for the auth service and some edge cases in the handlers."
+---
+"What is FluentValidation and why use it over Data Annotations?"
+"FluentValidation is a validation library that lets you define validation rules in code rather than as attributes on your models.
+Data Annotations like [Required] or [MaxLength] are fine for simple cases but they mix validation concerns into your model classes. With FluentValidation, validation lives separately in a dedicated validator class.
+The bigger advantage is testability - I can test my CreateProductCommandValidator directly without going through HTTP. You can see this in the test project - I just instantiate the validator and call Validate(). Also the rules are more expressive - you can write complex conditional validation that would be very messy with attributes."
+---
+🏗️ ARCHITECTURE QUESTIONS
+"What is Clean Architecture and what problem does it solve?"
+"Clean Architecture is about dependency direction. Business logic should never depend on infrastructure concerns like databases, HTTP clients, or frameworks.
+In this project, the Core layer has zero external dependencies - it's just plain C# classes. The Application layer contains business logic and depends only on Core. Infrastructure handles all the technical details and depends on both.
+The practical benefit is that if Microsoft changes something in ASP.NET Core, or if we want to swap HTTP libraries, we change one layer without touching business logic. It also makes unit testing natural - we can test Application handlers without needing a running API or database."
+---
+"What's the difference between Transient, Scoped and Singleton lifetimes?"
+"These control how long a DI-registered object lives.
+Transient - new instance every time it's requested. Good for lightweight stateless services.
+Scoped - one instance per HTTP request. This is what I used for AuthService and the CQRS handlers. Every request gets its own instance, which is important for anything that holds request-specific state.
+Singleton - one instance for the entire application lifetime. Good for things like configuration, caching, or thread-safe utilities.
+One gotcha I'm aware of - you should never inject a Scoped service into a Singleton, because the Singleton outlives the scope and you end up with stale data. This is called a 'captive dependency' and ASP.NET Core will throw an exception if you try it in development mode."
+---
+"What is the Repository Pattern? Did you use it here?"
+"The Repository Pattern abstracts data access behind an interface - instead of calling a database directly, you call IProductRepository.GetById(). It decouples business logic from storage concerns.
+I didn't use it explicitly here because there's no local data storage - everything goes to the Platzi API. However, IPlatziHttpClient serves a similar purpose - it abstracts the HTTP calls behind an interface. If we were to add a local database alongside the API, introducing a proper Repository Pattern would make sense."
+---
+🔄 PATTERNS & BEST PRACTICES
+"What is the MediatR Pipeline and how did you use it?"
+"MediatR has a pipeline concept similar to ASP.NET Core middleware. Every command or query passes through registered behaviors before reaching the handler.
+I added two behaviors. The LoggingBehavior wraps every request - it logs when a request starts, how long it took, and if it failed. The ValidationBehavior runs FluentValidation validators before the handler executes, so if a CreateProductCommand has invalid data, it throws a ValidationException before any business logic runs.
+The beauty is I registered these once and they apply automatically to every command and query without me having to add anything to individual handlers."
+---
+🔗 MICROSERVICES QUESTIONS (They'll Ask!)
+"What's the difference between a Monolith and Microservices?"
+"A monolith is a single deployable unit - everything in one application. Microservices are multiple small, independently deployable services each responsible for one business capability.
+This project is a monolith - one API that handles Products, Categories, and Auth. In a microservices world, these might be separate services: a ProductService, CategoryService, and AuthService, each with their own codebase and deployment pipeline.
+Monoliths are simpler to develop and debug. Microservices give you independent scaling and deployment but add operational complexity - you need service discovery, API gateways, distributed tracing, and a way for services to communicate."
+---
+"How would you convert this to microservices?"
+"I'd split it into three services along domain boundaries:
+ProductService - handles products CRUD
+CategoryService - handles categories CRUD
+AuthService - handles JWT authentication
+Each service would have its own codebase and Dockerfile. I'd add an API Gateway (like YARP or Ocelot) to route requests to the right service.
+The interesting problem is communication - when a product needs category data, how does it get it? Two approaches: synchronous via HTTP (service calls service directly) or asynchronous via a message queue like RabbitMQ.
+Synchronous is simpler but creates coupling. Asynchronous with RabbitMQ is more resilient - if CategoryService is down, ProductService can still process messages when it comes back up."
+---
+"How does CQRS relate to microservices?"
+"CQRS pairs very naturally with microservices. You can take it further - having separate read models and write models, potentially separate databases.
+A common pattern is Event Sourcing with CQRS - when a Command executes, instead of updating a database directly, you publish an event (like ProductCreated). Other services subscribe to these events via RabbitMQ and update their own read models.
+In this project I've laid the groundwork - Commands and Queries are already separated. If we went to microservices, the CreateProductCommand handler could publish a RabbitMQ message instead of making a direct HTTP call."
+---
+🐇 RABBITMQ QUESTIONS (Your Strong Card!)
+"What is RabbitMQ and when would you use it?"
+"RabbitMQ is a message broker - it sits between services and manages message delivery. Instead of Service A calling Service B directly (synchronous), Service A puts a message on a queue and Service B picks it up when it's ready (asynchronous).
+I'd use it when:
+•	The operation doesn't need an immediate response (fire and forget)
+•	You want resilience - if the consumer is down, messages queue up and process when it comes back
+•	You need to scale consumers independently - if product creation is a bottleneck, spin up more consumer instances
+•	You want to decouple services - publisher doesn't know or care about consumers"
+---
+"Explain the difference between a Queue and an Exchange in RabbitMQ"
+"A Queue is where messages sit waiting to be consumed. A Exchange receives messages from publishers and routes them to queues based on rules.
+There are three main exchange types:
+Direct - routes to queues where the routing key exactly matches. Like a specific mailbox.
+Fanout - broadcasts to ALL bound queues, ignoring routing key. Good for notifications that every service needs, like UserCreated.
+Topic - routes based on pattern matching. For example, product.* would match product.created and product.deleted. More flexible than Direct."
+---
+"How would you add RabbitMQ to this project?"
+"If I wanted to publish an event when a product is created, I'd:
+First, add MassTransit or RabbitMQ.Client NuGet package.
+Second, create a message contract - a simple class like ProductCreatedMessage with the product data.
+Third, modify CreateProductCommandHandler - after creating the product, publish the message to an exchange.
+Fourth, in another service (or another consumer in this service), create a consumer that handles ProductCreatedMessage - maybe it sends a notification email or updates a search index.
+The key is the handler doesn't care if anyone is listening. It just publishes and moves on. This is the publish/subscribe pattern."
+---
+"What is MassTransit?"
+"MassTransit is an abstraction layer over message brokers like RabbitMQ or Azure Service Bus. Instead of using RabbitMQ's raw API, you work with MassTransit's clean API and it handles the low-level broker details.
+It pairs well with the existing architecture here - MassTransit integrates with MediatR, so a command handler can publish a domain event and a registered consumer picks it up. You can swap RabbitMQ for Azure Service Bus just by changing configuration."
+---
+📊 GENERAL .NET MID-LEVEL QUESTIONS
+"What is async/await and why is it important for APIs?"
+"Async/await is .NET's mechanism for asynchronous programming. When a thread hits an await, instead of blocking and waiting, it releases back to the thread pool to handle other requests.
+For APIs that call databases or external services (like we do with Platzi), this is critical. Without async, each request ties up a thread while waiting for the HTTP response. With async, a single thread can handle many concurrent requests because it's not blocked during IO operations.
+All my handlers and the HTTP client use async/await for this reason - we're always waiting for the Platzi API to respond."
+---
+"What is the difference between Task and ValueTask?"
+"Both represent asynchronous operations. Task always allocates a heap object. ValueTask can complete synchronously without allocation, which is a performance optimization.
+In practice, ValueTask is better when the operation frequently completes synchronously - like reading from a cache. Task is fine for everything else, including HTTP calls which are always asynchronous.
+In this project I used Task throughout which is the right choice for HTTP-bound operations."
+---
+"What is dependency injection and why does .NET use it?"
+"Dependency Injection is about providing a class's dependencies from outside rather than having the class create them itself. Instead of new HttpClient() inside a constructor, I receive IPlatziHttpClient as a constructor parameter.
+Benefits: Loose coupling - my handlers don't know what HTTP client implementation they're using. Testability - I can inject mocks in tests. Configuration - the DI container manages lifetimes.
+.NET has DI built-in through IServiceCollection. I registered all services in DefaultConfiguration.cs and HttpConfiguration.cs."
+---
+🎯 QUESTIONS TO ASK THEM
+Shows engagement and intelligence:
+1.	"How is the team currently handling service communication - REST or messaging?"
+2.	"What's your current approach to observability - tracing, metrics?"
+3.	"Are the microservices containerized with Kubernetes or just Docker?"
+4.	"How do you handle database migrations across microservices?"
+5.	"What's the deployment pipeline look like - CI/CD with GitHub Actions, Azure DevOps?"
+---
+💡 KEY TALKING POINTS SUMMARY
+For CQRS:
+"Separation of read and write. Natural fit for microservices. MediatR pipeline gives free cross-cutting concerns."
+For Clean Architecture:
+"Dependency direction. Business logic is pure C#, no framework dependencies. Easy to test."
+For RabbitMQ:
+"Asynchronous decoupling. Resilience. Independent scaling. Publish/Subscribe pattern."
+For Microservices:
+"Independent deployment. Domain boundaries. Communication via HTTP or messaging. Operational complexity trade-off."
+---
+⚠️ THE HONEST ANSWER TECHNIQUE
+If asked something you don't know:
+"I haven't worked with X in depth yet, but from what I understand it [explain what you know]. In my research/learning I've seen it used for [use case]. Is that the direction your team uses it?"
+This shows:
+•	✅ Honesty
+•	✅ Awareness
+•	✅ Curiosity
+•	✅ Not bluffing
+---
+You're well prepared! The RabbitMQ knowledge is a strong differentiator - make sure to naturally connect it to the CQRS pattern you implemented! 🚀
+====================================================================================
+
+see here I have a custom made HttpClient in that project - a http client factory in fact. What would be the difference if I used the default IHttpClientFactory of C# /.net that was given to me by default? 
+

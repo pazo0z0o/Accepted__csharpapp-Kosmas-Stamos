@@ -28,7 +28,20 @@ public static class HttpConfiguration
             client.DefaultRequestHeaders.Add("Accept", "application/json");
             client.DefaultRequestHeaders.Add("User-Agent", "CSharpApp/1.0");
         })
-        .SetHandlerLifetime(TimeSpan.FromMinutes(httpClientSettings.LifeTime));
+        .SetHandlerLifetime(TimeSpan.FromMinutes(httpClientSettings.LifeTime))
+        .AddResilienceHandler("retry", builder =>
+        {
+            builder.AddRetry(new HttpRetryStrategyOptions
+            {       
+                MaxRetryAttempts = httpClientSettings.RetryCount,
+                Delay = TimeSpan.FromMilliseconds(httpClientSettings.SleepDuration),
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                ShouldHandle = args => ValueTask.FromResult(
+                    args.Outcome.Result?.IsSuccessStatusCode == false ||
+                    args.Outcome.Exception is HttpRequestException)
+            });
+        });
 
         return services;
     }
